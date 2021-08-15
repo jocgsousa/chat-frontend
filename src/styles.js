@@ -158,7 +158,7 @@ export const ButtonSubmitText = styled.div``;
 
 export const Msg = styled.div`
   width: 100%;
-  background-color: #7159c1;
+  background-color: ${(props) => props.autor ? '#7159c1' : '#dedede'};
   min-height: 50px;
   margin: 10px;
   animation-duration: ${(props) => props.duration};
