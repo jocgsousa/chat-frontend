@@ -1,156 +1,127 @@
 import React, { Component } from "react";
-// import { uniqueId } from "lodash";
-import Draggable from "react-draggable";
-import {RiCheckboxBlankCircleFill} from 'react-icons/ri';
-import { io } from "socket.io-client";
+import { Redirect } from "react-router-dom";
 import {
   Container,
-  Box,
-  Header,
-  View,
-  Footer,
-  InputText,
+  Row,
+  Col,
+  Form,
+  Input,
   ButtonSubmit,
-  ButtonSubmitText,
-  MessageView,
-  Msg,
+  ButtonRegister,
 } from "./styles";
-
 import api from "./services/api";
 
-const socket =  io("http://localhost:3333");
-
-
-class App extends Component {
+export default class App extends Component {
   state = {
-    user: false,
-    text: '',
-    userName: '',
-    messages: [],
+    login: true,
+    name: "",
+    nick: "",
+    password: "",
+    auth: false,
   };
 
   componentDidMount() {
-   const {user} = this.state;
-   if(user){
-       document.getElementById("text").focus();
-   }
-    const { messages } = this.state;
-
-   socket.on('receivedMessage', data => {
-     const msg = {
-      title: data.title,
-      message: data.text
-     };
-      const newState = messages;
-      newState.push(msg);
-      this.setState({messages: newState });
-   })
-  
-  }
-
-  componentDidUpdate() {
-    const {user} = this.state;
-    if(user){
-      const x = document.getElementById("view");
-      x.scrollTop = x.scrollHeight;
+    const user = JSON.parse(localStorage.getItem("user"));
+    if (user) {
+      this.setState({ auth: true });
     }
-    
-  
   }
 
-  handleMessage = async () => {
-   const { text, userName } = this.state;
-  
-    if(text.length <= 0){
-      alert('Por favor escreva algo.');
-     
-    }else {
-          await api.post('/post', {
-               title: userName,
-               text
-         }).then((response) => {
-          const emitObject = {
-            title: response.data.title,
-            text: response.data.text,
-          };
-          const { messages } = this.state;
-          const newState = messages;
-          newState.push({
-            title: userName,
-            message: text
-          });
-          this.setState({messages: newState });
-          socket.emit('sendMessage', emitObject);
+  siginup = async (e) => {
+    e.preventDefault();
+    const { name, nick, password } = this.state;
+    const objectUser = {
+      name,
+      nick,
+      password,
+    };
 
-      }).catch((err) => {
-        console.log(err.response.data);
+    await api
+      .post("/create", objectUser)
+      .then((response) => {
+        alert("Cadastro realizado com sucesso, faça login para continuar.");
+        this.setState({ login: true, name: "", nick: "", password: "" });
+      })
+      .catch((err) => {
+        alert(err ? err.response.data.error : "Falha de conexão");
       });
-    }
   };
 
-  handleUser = () => {
-    const {userName} = this.state;
-    if(userName.length <= 0){
-      alert('Por favor informe o seu nome para entrar no chat!')
-    }else{
-      this.setState({user: true});
-      const socketObject = {
-        user: userName
-      }
-      socket.emit('addUser', socketObject);
-    }
-  } 
+  sigin = async (e) => {
+    e.preventDefault();
+
+    const { nick, password } = this.state;
+    await api
+      .post("/session", {
+        nick,
+        password,
+      })
+      .then((resp) => {
+        localStorage.setItem(
+          "user",
+          JSON.stringify({
+            id: resp.data.user.id,
+            nick: resp.data.user.nick,
+            token: resp.data.token,
+          })
+        );
+        this.setState({ auth: true });
+      })
+      .catch((err) => {
+        console.log(err ? err.response.data : "Falha de conexão");
+        window.alert(err ? err.response.data.error : "Falha de conexão");
+      });
+  };
 
   render() {
-    
-    const { messages,user,  text, userName } = this.state;
+    const { login, name, nick, password, auth } = this.state;
 
     return (
       <Container>
+        {auth && <Redirect to="/painel" />}
+        <Row>
+          <Col size={12}>
+            <Form onSubmit={login ? this.sigin : this.siginup}>
+              <h3>Login</h3>
 
-        {
-          user ? (
-            <>
-             <Draggable
-              handle=".handle"
-              scale={1}
-              defaultPosition={{ x: 40, y: 40 }}
-               >
-          <Box animate="transitions">
-            <Header>{userName}&nbsp;&nbsp;<RiCheckboxBlankCircleFill color="#00FF00" /></Header>
-            <View id="view">
-              <MessageView>
-                {messages.map((msg) => (
-                  <>
-                    <Msg animate="transitions" autor={msg.title !== userName}>
-                      <strong>{msg.title}</strong>
-                      <li>{msg.message}</li>
-                    </Msg>
-                  </>
-                ))}
-              </MessageView>
-            </View>
-            <Footer>
-              <InputText value={text} id="text" onChange={(e) => {this.setState({text: e.target.value })}} />
-              <ButtonSubmit onClick={() => this.handleMessage()}>
-                <ButtonSubmitText>Enviar</ButtonSubmitText>
-              </ButtonSubmit>
-            </Footer>
-          </Box>
-        </Draggable>  
-
-            </>
-          ): (
-            <>
-              <input type="text" onChange={(e) => {this.setState({userName: e.target.value })}} value={userName} />
-              <button type="button" onClick={() => this.handleUser()}>Entrar</button>
-            </>
-          )
-        }
-       
+              {!login && (
+                <Input
+                  placeholder="Nome completo"
+                  value={name}
+                  onChange={(e) => {
+                    this.setState({ name: e.target.value });
+                  }}
+                  autoFocus
+                />
+              )}
+              <Input
+                placeholder="Nick"
+                value={nick}
+                onChange={(e) => {
+                  this.setState({ nick: e.target.value });
+                }}
+                autoFocus
+              />
+              <Input
+                placeholder="Senha"
+                value={password}
+                onChange={(e) => {
+                  this.setState({ password: e.target.value });
+                }}
+                autoFocus={false}
+              />
+              <ButtonSubmit>{login ? "Entrar" : "Registrar"}</ButtonSubmit>
+              <ButtonRegister
+                onClick={() => {
+                  this.setState({ login: !login, nick: "", password: "" });
+                }}
+              >
+                {!login ? "Voltar" : "Registrar-me"}
+              </ButtonRegister>
+            </Form>
+          </Col>
+        </Row>
       </Container>
     );
   }
 }
-
-export default App;
